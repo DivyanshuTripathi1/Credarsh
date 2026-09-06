@@ -16,27 +16,49 @@ const { SessionModel } = require("./model/SessionModel");
 const { authMiddleware } = require("./middleware/authMiddleware");
 
 const PORT = process.env.PORT || 3002;
-const uri = process.env.MONGO_URL;
+const uri = process.env.MONGO_URL || process.env.MONGODB_URI;
+const isProduction = process.env.NODE_ENV === "production";
 
 const app = express();
+
+// Trust reverse proxy (Render, Railway, Heroku, AWS, Nginx) so HTTPS cookies work
+if (isProduction) {
+  app.set("trust proxy", 1);
+}
+
+const envOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(",").map((s) => s.trim())
+  : [];
 
 const allowedOrigins = [
   "http://localhost:3000",
   "http://localhost:3001",
   "http://127.0.0.1:3000",
   "http://127.0.0.1:3001",
-];
+  process.env.FRONTEND_URL,
+  process.env.DASHBOARD_URL,
+  ...envOrigins,
+].filter(Boolean);
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (
-        !origin ||
-        allowedOrigins.includes(origin) ||
-        origin.startsWith("http://localhost:")
-      ) {
-        return callback(null, origin || true);
+      // Allow server-to-server or requests without origin (curl, mobile apps)
+      if (!origin) return callback(null, true);
+
+      // Match explicitly allowed origins
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
       }
+
+      // Allow any localhost port in development
+      if (
+        origin.startsWith("http://localhost:") ||
+        origin.startsWith("http://127.0.0.1:")
+      ) {
+        return callback(null, true);
+      }
+
       return callback(null, false);
     },
     credentials: true,
@@ -47,7 +69,24 @@ app.use(cookieParser());
 app.use(bodyParser.json());
 app.use(express.json());
 
+// Health check endpoint for cloud deployment platforms (Render, Railway, etc.)
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "ok",
+    environment: process.env.NODE_ENV || "development",
+    timestamp: new Date().toISOString(),
+  });
+});
+
 const SESSION_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+const getCookieOptions = () => ({
+  httpOnly: true,
+  secure: isProduction,
+  sameSite: isProduction ? "none" : "lax",
+  maxAge: SESSION_EXPIRY_MS,
+  path: "/",
+});
 
 const createSessionAndSetCookie = async (userId, res) => {
   const sessionId = crypto.randomBytes(32).toString("hex");
@@ -59,13 +98,7 @@ const createSessionAndSetCookie = async (userId, res) => {
     expiresAt,
   });
 
-  res.cookie("sessionId", sessionId, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: SESSION_EXPIRY_MS,
-    path: "/",
-  });
+  res.cookie("sessionId", sessionId, getCookieOptions());
 
   return sessionId;
 };
@@ -437,8 +470,8 @@ app.post("/logout", async (req, res) => {
 
     res.clearCookie("sessionId", {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
+      secure: isProduction,
+      sameSite: isProduction ? "none" : "lax",
       path: "/",
     });
 

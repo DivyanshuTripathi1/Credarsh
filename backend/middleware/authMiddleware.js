@@ -34,7 +34,12 @@ const authMiddleware = async (req, res, next) => {
     // 3. Check expiration
     if (session.expiresAt && session.expiresAt < new Date()) {
       await SessionModel.deleteOne({ _id: session._id });
-      res.clearCookie("sessionId", { httpOnly: true, sameSite: "lax" });
+      res.clearCookie("sessionId", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+        path: "/",
+      });
       return res.status(401).json({
         success: false,
         message: "Session expired. Please log in again.",
@@ -45,7 +50,12 @@ const authMiddleware = async (req, res, next) => {
     const user = await UserModel.findById(session.userId).select("-password");
     if (!user) {
       await SessionModel.deleteOne({ _id: session._id });
-      res.clearCookie("sessionId", { httpOnly: true, sameSite: "lax" });
+      res.clearCookie("sessionId", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+        path: "/",
+      });
       return res.status(401).json({
         success: false,
         message: "User not found. Session terminated.",
