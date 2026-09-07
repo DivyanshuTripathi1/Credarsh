@@ -19,6 +19,29 @@ const PORT = process.env.PORT || 3000;
 const uri = process.env.MONGO_URL || process.env.MONGODB_URI;
 const isProduction = process.env.NODE_ENV === "production";
 let mongoError = null;
+let cachedDb = null;
+
+async function ensureDbConnected() {
+  if (cachedDb && mongoose.connection.readyState === 1) {
+    return cachedDb;
+  }
+  if (!uri) {
+    mongoError = "MONGO_URL / MONGODB_URI environment variable is not defined";
+    throw new Error(mongoError);
+  }
+  try {
+    cachedDb = await mongoose.connect(uri, {
+      serverSelectionTimeoutMS: 8000,
+      maxPoolSize: 5,
+    });
+    mongoError = null;
+    return cachedDb;
+  } catch (err) {
+    mongoError = err.message;
+    console.error("MongoDB connection error:", err.message);
+    throw err;
+  }
+}
 
 const app = express();
 
@@ -76,7 +99,15 @@ app.use(bodyParser.json());
 app.use(express.json());
 
 // Health check endpoint for cloud deployment platforms (Render, Railway, Amplify, etc.)
-app.get("/health", (req, res) => {
+app.get("/health", async (req, res) => {
+  if (mongoose.connection.readyState !== 1 && uri) {
+    try {
+      await ensureDbConnected();
+    } catch {
+      // mongoError will be populated
+    }
+  }
+
   const dbStates = ["disconnected", "connected", "connecting", "disconnecting"];
   const dbState = dbStates[mongoose.connection.readyState] || "unknown";
   res.status(200).json({
@@ -87,6 +118,19 @@ app.get("/health", (req, res) => {
     mongoError: mongoError,
     timestamp: new Date().toISOString(),
   });
+});
+
+// Middleware: ensure database is connected before processing any API requests
+app.use(async (req, res, next) => {
+  if (req.path === "/health") return next();
+  try {
+    await ensureDbConnected();
+    next();
+  } catch (err) {
+    return res.status(503).json({
+      message: `Database connection unavailable: ${err.message}`,
+    });
+  }
 });
 
 const SESSION_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -522,20 +566,11 @@ app.get("/user/:id", authMiddleware, async (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}`);
+  if (uri) {
+    ensureDbConnected()
+      .then(() => console.log("Connected to DB"))
+      .catch((err) => console.warn("Initial DB connection attempt:", err.message));
+  } else {
+    console.warn("WARNING: MONGO_URL / MONGODB_URI environment variable is not defined!");
+  }
 });
-
-if (uri) {
-  mongoose
-    .connect(uri)
-    .then(() => {
-      mongoError = null;
-      console.log("Connected to DB");
-    })
-    .catch((err) => {
-      mongoError = err.message;
-      console.error("Failed to connect to MongoDB:", err);
-    });
-} else {
-  mongoError = "MONGO_URL / MONGODB_URI environment variable is not defined";
-  console.warn("WARNING: MONGO_URL / MONGODB_URI environment variable is not defined!");
-}
