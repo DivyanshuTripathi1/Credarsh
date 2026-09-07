@@ -15,7 +15,7 @@ const { UserModel } = require("./model/UserModel");
 const { SessionModel } = require("./model/SessionModel");
 const { authMiddleware } = require("./middleware/authMiddleware");
 
-const PORT = process.env.PORT || 3002;
+const PORT = process.env.PORT || 3000;
 const uri = process.env.MONGO_URL || process.env.MONGODB_URI;
 const isProduction = process.env.NODE_ENV === "production";
 
@@ -48,6 +48,11 @@ app.use(
 
       // Match explicitly allowed origins
       if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      // Allow any Amplify hosting domains
+      if (origin.endsWith(".amplifyapp.com")) {
         return callback(null, true);
       }
 
@@ -497,14 +502,19 @@ app.get("/user/:id", authMiddleware, async (req, res) => {
   }
 });
 
-mongoose
-  .connect(uri)
-  .then(() => {
-    console.log("Connected to DB");
-    app.listen(PORT, () => {
-      console.log(`Server listening on port ${PORT}`);
+app.listen(PORT, () => {
+  console.log(`Server listening on port ${PORT}`);
+});
+
+if (uri) {
+  mongoose
+    .connect(uri)
+    .then(() => {
+      console.log("Connected to DB");
+    })
+    .catch((err) => {
+      console.error("Failed to connect to MongoDB:", err);
     });
-  })
-  .catch((err) => {
-    console.error("Failed to connect to MongoDB:", err);
-  });
+} else {
+  console.warn("WARNING: MONGO_URL / MONGODB_URI environment variable is not defined!");
+}
