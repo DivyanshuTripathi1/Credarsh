@@ -18,6 +18,7 @@ const { authMiddleware } = require("./middleware/authMiddleware");
 const PORT = process.env.PORT || 3000;
 const uri = process.env.MONGO_URL || process.env.MONGODB_URI;
 const isProduction = process.env.NODE_ENV === "production";
+let mongoError = null;
 
 const app = express();
 
@@ -74,11 +75,16 @@ app.use(cookieParser());
 app.use(bodyParser.json());
 app.use(express.json());
 
-// Health check endpoint for cloud deployment platforms (Render, Railway, etc.)
+// Health check endpoint for cloud deployment platforms (Render, Railway, Amplify, etc.)
 app.get("/health", (req, res) => {
+  const dbStates = ["disconnected", "connected", "connecting", "disconnecting"];
+  const dbState = dbStates[mongoose.connection.readyState] || "unknown";
   res.status(200).json({
     status: "ok",
     environment: process.env.NODE_ENV || "development",
+    database: dbState,
+    hasMongoUrl: Boolean(uri),
+    mongoError: mongoError,
     timestamp: new Date().toISOString(),
   });
 });
@@ -355,6 +361,12 @@ app.delete("/deleteOrder/:id", authMiddleware, async (req, res) => {
 // Signup Route
 app.post("/signup", async (req, res) => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({
+        message: "Database connection unavailable. Please ensure MONGO_URL is configured and MongoDB Atlas allows connections from anywhere (0.0.0.0/0).",
+      });
+    }
+
     const { email, username, password } = req.body;
 
     if (!email || !username || !password) {
@@ -400,6 +412,12 @@ app.post("/signup", async (req, res) => {
 // Login Route
 app.post("/login", async (req, res) => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({
+        message: "Database connection unavailable. Please ensure MONGO_URL is configured and MongoDB Atlas allows connections from anywhere (0.0.0.0/0).",
+      });
+    }
+
     const { email, password } = req.body;
 
     if (!email || !password) {
@@ -433,7 +451,7 @@ app.post("/login", async (req, res) => {
     });
   } catch (err) {
     console.error("Login error:", err);
-    res.status(500).json({ message: "Internal server error during login." });
+    res.status(500).json({ message: err.message || "Internal server error during login." });
   }
 });
 
@@ -510,11 +528,14 @@ if (uri) {
   mongoose
     .connect(uri)
     .then(() => {
+      mongoError = null;
       console.log("Connected to DB");
     })
     .catch((err) => {
+      mongoError = err.message;
       console.error("Failed to connect to MongoDB:", err);
     });
 } else {
+  mongoError = "MONGO_URL / MONGODB_URI environment variable is not defined";
   console.warn("WARNING: MONGO_URL / MONGODB_URI environment variable is not defined!");
 }
