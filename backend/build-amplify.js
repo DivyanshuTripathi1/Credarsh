@@ -20,7 +20,7 @@ const manifest = {
   version: 1,
   framework: {
     name: "express",
-    version: "5.2"
+    version: "5.2.1"
   },
   routes: [
     {
