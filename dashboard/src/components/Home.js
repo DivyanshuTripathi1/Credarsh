@@ -12,12 +12,34 @@ const Home = () => {
 
     const verifyAuth = async () => {
       try {
+        // Read sessionId from query parameters (cross-domain SSO handoff)
+        const params = new URLSearchParams(window.location.search);
+        const urlSessionId = params.get("sessionId");
+        if (urlSessionId) {
+          localStorage.setItem("sessionId", urlSessionId);
+          sessionStorage.setItem("sessionId", urlSessionId);
+          params.delete("sessionId");
+          const remaining = params.toString() ? `?${params.toString()}` : "";
+          window.history.replaceState({}, document.title, window.location.pathname + remaining);
+        }
+
+        const effectiveSessionId =
+          urlSessionId ||
+          localStorage.getItem("sessionId") ||
+          sessionStorage.getItem("sessionId");
+
+        const headers = {
+          "Content-Type": "application/json",
+        };
+        if (effectiveSessionId) {
+          headers["x-session-id"] = effectiveSessionId;
+          headers["Authorization"] = `Bearer ${effectiveSessionId}`;
+        }
+
         const res = await fetch(`${API_URL}/me`, {
           method: "GET",
           credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers,
         });
 
         if (res.ok) {

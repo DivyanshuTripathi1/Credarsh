@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../../utils/auth";
+import { useAuth, getDashboardUrl } from "../../utils/auth";
 import { DASHBOARD_URL } from "../../config";
 
 function Hero() {
@@ -9,7 +9,7 @@ function Hero() {
 
   const handleAction = () => {
     if (isLoggedIn) {
-      window.location.href = `${DASHBOARD_URL}/`;
+      window.location.href = getDashboardUrl();
     } else {
       navigate("/signup");
     }

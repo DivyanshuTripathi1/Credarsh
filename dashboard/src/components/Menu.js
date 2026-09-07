@@ -67,7 +67,16 @@ const Menu = () => {
       }
 
       // Check current user from /me
-      fetch(`${API_URL}/me`, { credentials: "include" })
+      const sid =
+        localStorage.getItem("sessionId") ||
+        sessionStorage.getItem("sessionId");
+      const headers = {};
+      if (sid) {
+        headers["x-session-id"] = sid;
+        headers["Authorization"] = `Bearer ${sid}`;
+      }
+
+      fetch(`${API_URL}/me`, { credentials: "include", headers })
         .then((res) => {
           if (res.ok) return res.json();
           throw new Error("Unauthorized");

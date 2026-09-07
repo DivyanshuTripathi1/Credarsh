@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
-import { API_URL } from "../config";
+import { API_URL, DASHBOARD_URL } from "../config";
 
 // Enable credentials so cookies are automatically sent with all requests
 axios.defaults.withCredentials = true;
@@ -147,3 +147,15 @@ export const useAuth = () => {
     logout,
   };
 };
+
+/**
+ * Returns Dashboard URL with sessionId appended for seamless cross-domain authentication.
+ */
+export const getDashboardUrl = () => {
+  const sid = getSessionId();
+  if (sid) {
+    return `${DASHBOARD_URL}/?sessionId=${encodeURIComponent(sid)}`;
+  }
+  return `${DASHBOARD_URL}/`;
+};
+

@@ -15,7 +15,7 @@ import Navbar from "./landing_page/Navbar";
 import Footer from "./landing_page/Footer";
 import NotFound from "./landing_page/NotFound";
 import Login from "./landing_page/signup/Login";
-import { getUser, checkUrlLogout } from "./utils/auth";
+import { getUser, checkUrlLogout, getDashboardUrl } from "./utils/auth";
 import ScrollToTop from "./utils/ScrollToTop";
 import { DASHBOARD_URL } from "./config";
 
@@ -24,7 +24,7 @@ axios.defaults.withCredentials = true;
 function Route3000() {
   const user = getUser();
   if (user) {
-    window.location.href = `${DASHBOARD_URL}/`;
+    window.location.href = getDashboardUrl();
     return null;
   }
   return <Navigate to="/signup" replace />;
