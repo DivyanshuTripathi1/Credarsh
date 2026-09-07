@@ -44,7 +44,7 @@ function Team() {
             }}
           >
             <img
-              src={process.env.PUBLIC_URL + "/media/images/divyanshu.jpeg"}
+              src={process.env.PUBLIC_URL + "/media/images/divyanshu.jpg"}
               alt="Divyanshu Tripathi"
               className="img-fluid"
               style={{
@@ -57,7 +57,10 @@ function Team() {
                 backgroundColor: "#f4f6f8",
               }}
               onError={(e) => {
-                e.currentTarget.src = "/divyanshu.jpeg";
+                if (!e.currentTarget.dataset.retried) {
+                  e.currentTarget.dataset.retried = "1";
+                  e.currentTarget.src = "/divyanshu.jpg";
+                }
               }}
             />
           </div>
