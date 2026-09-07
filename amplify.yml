@@ -1,0 +1,52 @@
+version: 1
+applications:
+  - appRoot: backend
+    frontend:
+      phases:
+        preBuild:
+          commands:
+            - npm ci
+        build:
+          commands:
+            - npm run build
+      artifacts:
+        baseDirectory: .amplify-hosting
+        files:
+          - '**/*'
+      cache:
+        paths:
+          - node_modules/**/*
+
+  - appRoot: frontend
+    frontend:
+      phases:
+        preBuild:
+          commands:
+            - npm ci --legacy-peer-deps
+        build:
+          commands:
+            - npm run build
+      artifacts:
+        baseDirectory: build
+        files:
+          - '**/*'
+      cache:
+        paths:
+          - node_modules/**/*
+
+  - appRoot: dashboard
+    frontend:
+      phases:
+        preBuild:
+          commands:
+            - npm ci --legacy-peer-deps
+        build:
+          commands:
+            - npm run build
+      artifacts:
+        baseDirectory: build
+        files:
+          - '**/*'
+      cache:
+        paths:
+          - node_modules/**/*

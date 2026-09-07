@@ -12,6 +12,8 @@ build/
 */build/
 dist/
 */dist/
+.amplify-hosting/
+*/.amplify-hosting/
 
 # Logs
 *.log
